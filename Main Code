@@ -1,0 +1,110 @@
+from picamera import PiCamera
+from time import sleep
+import RPi.GPIO as GPIO
+import time
+from PIL import Image, ImageDraw, ImageOps
+from twython import Twython
+
+camera = PiCamera()
+camera.rotation = 180
+camera.resolution = (500,500)
+
+GPIO.setwarnings(False)
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(18, GPIO.IN)
+
+segments =  (17,27,22,5,6,13,26)
+GPIO.setup(segments,GPIO.OUT,initial=0)
+
+digits = (24,25,12,16)
+GPIO.setup(digits,GPIO.OUT,initial=1)
+    
+num ={' ':(0,0,0,0,0,0,0),
+      '0':(1,1,1,1,1,1,0),
+      '1':(0,1,1,0,0,0,0),
+      '2':(1,1,0,1,1,0,1),
+      '3':(1,1,1,1,0,0,1),
+      '4':(0,1,1,0,0,1,1),
+      '5':(1,0,1,1,0,1,1),
+      '6':(1,0,1,1,1,1,1),
+      '7':(1,1,1,0,0,0,0),
+      '8':(1,1,1,1,1,1,1),
+      '9':(1,1,1,1,0,1,1),
+      'n':(0,0,1,0,1,0,1),
+      'i':(0,0,0,0,1,0,1),
+      'c':(0,0,0,1,1,0,1),
+      'e':(1,1,0,1,1,1,1)}
+
+def tweet():
+    
+    C_key = "pj8KQT7p4ryZ1xllIIKslaHJU"
+    C_secret = "Ed6YWL21shL9U9kIb2vPtHpDS03crD603R2RinQsWuquK98dHK"
+    A_token = "1192941266155134976-mMobLUrVynaA6RZMMBj07RNQCVUIvs"
+    A_secret = "EGjhvRS8PC2oKmjBpcy2cCWwUSbEveWA0B00nLj7r3iBL"
+    
+    twitter = Twython(C_key,C_secret,A_token,A_secret)
+    
+    twitter.update_status(status = input("Introduce your tweet: "))
+
+    photo = open('/home/murairyan/Pictures/Final_Photo.jpg','rb')
+    response =  twitter.upload_media(media=photo)
+    twitter.update_status(status= input("Caption your picture: "), media_ids=[response['media_id']])
+
+def photoTake():
+    global camera
+    camera.start_preview(alpha = 200)
+    for i in range(4):
+        sleep(2)
+        camera.capture('/home/murairyan/Pictures/image%s.jpg' % i)
+        print('Photo'+str(i))
+    camera.stop_preview()
+
+    Image01 = Image.open('/home/murairyan/Pictures/image0.jpg').resize((500,500))
+    Image02 = Image.open('/home/murairyan/Pictures/image1.jpg').resize((500,500))
+    Image03 = Image.open('/home/murairyan/Pictures/image2.jpg').resize((500,500))
+    Image04 = Image.open('/home/murairyan/Pictures/image3.jpg').resize((500,500))
+
+    Logo = Image.open('/home/murairyan/Downloads/SuLogo.png').resize((200,100))
+
+    newImage = Image.new("RGB", (2000, 500), (0,0,0))
+
+    newImage.paste(Image01,(0,0))
+    newImage.paste(Image02,(500,0))
+    newImage.paste(Image03,(1000,0))
+    newImage.paste(Image04,(1500,0))
+
+    newImage.paste(Logo,(1780,380))
+
+    draw = ImageDraw.Draw(newImage)
+    draw.line((500,0,500,500),fill=(0,0,0),width=20)
+    draw.line((1000,0,1000,500),fill=(0,0,0),width=20)
+    draw.line((1500,0,1500,500),fill=(0,0,0),width=20)
+    draw.line((0,500,2000,500),fill=(0,0,0),width=50)
+    draw.line((0,0,0,500),fill=(0,0,0),width=50)
+    draw.line((2000,0,2000,500),fill=(0,0,0),width=50)
+    draw.line((0,0,2000,0),fill=(0,0,0),width=50)
+
+    newImage.save('/home/murairyan/Pictures/Final_Photo.jpg', quailty=100)
+
+def clockCountDown(high):
+    GPIO.output(16,0)
+    for count in range (high,-1,-1):
+        for i in range(7):
+            GPIO.output(segments[i],num[str(count)][i])
+        time.sleep(1)
+    GPIO.output(16,1)
+        
+def buttonOne_callback(channel):
+    print("Get ready to SMILE!!")
+    clockCountDown(5)
+    photoTake()
+    tweet()
+
+GPIO.add_event_detect(18, GPIO.FALLING, callback=buttonOne_callback, bouncetime=300)
+
+try: 
+    while(1):
+        time.sleep(1e6)
+
+finally:
+    GPIO.cleanup()
